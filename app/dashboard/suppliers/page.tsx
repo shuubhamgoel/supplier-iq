@@ -1,8 +1,17 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/utils/supabase/client'
 import SupplierDetail from '@/components/SupplierDetail'
+import { Header, StatusBadge, StatusDot, HealthBar } from '@/components/DashboardUI'
+
+const filters = [
+  { key: 'all', label: 'All' },
+  { key: 'critical', label: 'Critical' },
+  { key: 'at_risk', label: 'At risk' },
+  { key: 'healthy', label: 'Healthy' },
+]
 
 export default function SuppliersPage() {
   const { user } = useAuth()
@@ -20,6 +29,7 @@ export default function SuppliersPage() {
   useEffect(() => {
     if (!user) return
     fetchSuppliers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, statusFilter, searchTerm, page])
 
   const fetchSuppliers = async () => {
@@ -30,7 +40,9 @@ export default function SuppliersPage() {
       let query = supabase.from('suppliers').select('*', { count: 'exact' }).eq('user_id', user.id)
       if (statusFilter !== 'all') { query = query.eq('status', statusFilter) }
       if (searchTerm) { query = query.ilike('name', `%${searchTerm}%`) }
-      const { data, count, error: queryError } = await query.order('created_at', { ascending: false }).range((page - 1) * pageSize, page * pageSize - 1)
+      const { data, count, error: queryError } = await query
+        .order('health_score', { ascending: true })
+        .range((page - 1) * pageSize, page * pageSize - 1)
       if (queryError) throw queryError
       setSuppliers(data || [])
       setTotalCount(count || 0)
@@ -49,83 +61,135 @@ export default function SuppliersPage() {
       const briefContent = `Executive Summary for ${supplier.name}\nStatus: ${supplier.status.toUpperCase()}\nHealth Score: ${supplier.health_score}/100\nCategory: ${supplier.category || 'N/A'}\n\nKey Metrics:\n- The supplier is currently in "${supplier.status}" status\n- Overall health score stands at ${supplier.health_score}%\n- Further action may be required based on current performance trends\n\nGenerated on: ${new Date().toLocaleDateString()}`
       const { error } = await supabase.from('briefs').insert({ supplier_id: supplierId, content: briefContent })
       if (error) throw error
-      if (selectedSupplier?.id === supplierId) { setSelectedSupplier({ ...selectedSupplier }); await new Promise((resolve) => setTimeout(resolve, 300)); fetchSuppliers() }
+      if (selectedSupplier?.id === supplierId) { setSelectedSupplier({ ...selectedSupplier }); await new Promise((r) => setTimeout(r, 300)); fetchSuppliers() }
     } catch (err) {
       console.error('Error generating brief:', err)
     }
   }
 
-  const statusColors = { critical: 'bg-red-100 text-red-800', at_risk: 'bg-yellow-100 text-yellow-800', healthy: 'bg-green-100 text-green-800' }
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Suppliers</h1>
-        <div className="flex gap-4 mb-6">
-          <input type="text" placeholder="Search suppliers..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }} className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-            <option value="all">All Status</option>
-            <option value="critical">Critical</option>
-            <option value="at_risk">At Risk</option>
-            <option value="healthy">Healthy</option>
-          </select>
-        </div>
-      </div>
+    <div className="min-h-full">
+      <Header title="Suppliers" subtitle={`${totalCount} supplier${totalCount === 1 ? '' : 's'} in your workspace`} />
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-700 text-sm">{error}</p>
-          <button onClick={() => fetchSuppliers()} className="mt-2 text-red-600 hover:underline text-sm font-medium">Retry</button>
-        </div>
-      )}
+      <div className="p-8">
+        {/* toolbar */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <svg className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <input
+              type="text" placeholder="Search suppliers…" value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+            />
+          </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>
-      ) : suppliers.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <p className="text-gray-500 text-lg">No suppliers found</p>
-          {searchTerm && (<button onClick={() => { setSearchTerm(''); setPage(1) }} className="mt-2 text-indigo-600 hover:underline text-sm font-medium">Clear search</button>)}
+          <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => { setStatusFilter(f.key); setPage(1) }}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
+                  statusFilter === f.key ? 'bg-grad-brand text-white shadow-glow' : 'text-gray-500 hover:text-ink-900'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-8">
-          <div className="col-span-2">
-            <div className="bg-white rounded-lg shadow">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Category</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Health</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {suppliers.map((supplier) => (
-                    <tr key={supplier.id} onClick={() => setSelectedSupplier(supplier)} className={`cursor-pointer hover:bg-indigo-50 transition ${selectedSupplier?.id === supplier.id ? 'bg-indigo-50' : ''}`}>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{supplier.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{supplier.category || '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${statusColors[supplier.status as keyof typeof statusColors]}`}>{supplier.status}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{supplier.health_score}/100</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                <p className="text-sm text-gray-600">Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount}</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 hover:bg-gray-100">Previous</button>
-                  <button onClick={() => { const maxPage = Math.ceil(totalCount / pageSize); setPage(Math.min(maxPage, page + 1)) }} disabled={page * pageSize >= totalCount} className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 hover:bg-gray-100">Next</button>
-                </div>
+
+        {error && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <span>{error}</span>
+            <button onClick={() => fetchSuppliers()} className="font-semibold underline">Retry</button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* table */}
+          <div className="lg:col-span-2">
+            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
+              <div className="grid grid-cols-[1.8fr_1fr_0.9fr_1fr] gap-3 border-b border-gray-100 bg-gray-50/70 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <span>Supplier</span><span>Category</span><span>Status</span><span>Health</span>
               </div>
+
+              {loading ? (
+                [...Array(8)].map((_, i) => (
+                  <div key={i} className="grid grid-cols-[1.8fr_1fr_0.9fr_1fr] items-center gap-3 border-b border-gray-50 px-5 py-4 last:border-0">
+                    <div className="skeleton h-4 w-32 rounded" />
+                    <div className="skeleton h-4 w-20 rounded" />
+                    <div className="skeleton h-5 w-16 rounded-full" />
+                    <div className="skeleton h-4 w-20 rounded" />
+                  </div>
+                ))
+              ) : suppliers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                  </div>
+                  <p className="font-medium text-ink-900">No suppliers match</p>
+                  <p className="mt-1 text-sm text-gray-500">Try a different search or filter.</p>
+                  {(searchTerm || statusFilter !== 'all') && (
+                    <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setPage(1) }} className="mt-3 text-sm font-semibold text-brand-600 hover:underline">
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                suppliers.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSupplier(s)}
+                    className={`grid w-full grid-cols-[1.8fr_1fr_0.9fr_1fr] items-center gap-3 border-b border-gray-50 px-5 py-4 text-left transition last:border-0 hover:bg-brand-50/40 ${
+                      selectedSupplier?.id === s.id ? 'bg-brand-50/60' : ''
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <StatusDot status={s.status} />
+                      <span className="truncate text-sm font-semibold text-ink-900">{s.name}</span>
+                    </span>
+                    <span className="truncate text-sm text-gray-500">{s.category || '—'}</span>
+                    <span><StatusBadge status={s.status} /></span>
+                    <span><HealthBar score={s.health_score} /></span>
+                  </button>
+                ))
+              )}
+
+              {!loading && suppliers.length > 0 && (
+                <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/70 px-5 py-3">
+                  <p className="text-xs text-gray-500">
+                    Showing <span className="font-semibold text-ink-900">{(page - 1) * pageSize + 1}</span>–
+                    <span className="font-semibold text-ink-900">{Math.min(page * pageSize, totalCount)}</span> of{' '}
+                    <span className="font-semibold text-ink-900">{totalCount}</span>
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-white disabled:opacity-40">Prev</button>
+                    <span className="px-2 text-sm text-gray-500">{page} / {totalPages}</span>
+                    <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-white disabled:opacity-40">Next</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <div>
-            {selectedSupplier ? (<SupplierDetail supplier={selectedSupplier} onGenerateBrief={handleGenerateBrief} />) : (<div className="bg-white rounded-lg shadow p-6 text-center text-gray-500"><p>Select a supplier to view details</p></div>)}
+
+          {/* detail panel */}
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            {selectedSupplier ? (
+              <SupplierDetail supplier={selectedSupplier} onGenerateBrief={handleGenerateBrief} />
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center shadow-card">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6" /><path d="M10 22h4" /><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" /></svg>
+                </div>
+                <p className="font-medium text-ink-900">Select a supplier</p>
+                <p className="mt-1 text-sm text-gray-500">Click any row to see metrics, activity, and generate a brief.</p>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

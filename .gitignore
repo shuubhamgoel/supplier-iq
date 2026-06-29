@@ -8,3 +8,5 @@ dist/
 .env.*.local
 .vercel/
 .vercel
+.claude/
+next-env.d.ts

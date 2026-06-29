@@ -1,8 +1,22 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/utils/supabase/client'
-import Link from 'next/link'
+import { Header, SeverityBadge, StatusDot } from '@/components/DashboardUI'
+
+const filters = [
+  { key: 'all', label: 'All' },
+  { key: 'high', label: 'High' },
+  { key: 'medium', label: 'Medium' },
+  { key: 'low', label: 'Low' },
+]
+
+const sideAccent: Record<string, string> = {
+  high: 'border-l-rose-500',
+  medium: 'border-l-amber-500',
+  low: 'border-l-sky-500',
+}
 
 export default function AlertsPage() {
   const { user } = useAuth()
@@ -10,11 +24,13 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     if (!user) return
     fetchAlerts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, filter])
 
   const fetchAlerts = async () => {
@@ -24,8 +40,8 @@ export default function AlertsPage() {
     try {
       const userSuppliers = await supabase.from('suppliers').select('id').eq('user_id', user.id)
       const supplierIds = userSuppliers.data?.map((s) => s.id) || []
-      let query = supabase.from('alerts').select('*, suppliers(name, status)').in('supplier_id', supplierIds)
-      if (filter !== 'all') { query = filter === 'unresolved' ? query.eq('resolved', false) : query.eq('severity', filter) } else { query = query.eq('resolved', false) }
+      let query = supabase.from('alerts').select('*, suppliers(name, status)').in('supplier_id', supplierIds).eq('resolved', false)
+      if (filter !== 'all') { query = query.eq('severity', filter) }
       const { data, error: queryError } = await query.order('created_at', { ascending: false })
       if (queryError) throw queryError
       setAlerts(data || [])
@@ -37,60 +53,95 @@ export default function AlertsPage() {
   }
 
   const handleResolveAlert = async (alertId: string) => {
+    setResolvingId(alertId)
     try {
       const { error } = await supabase.from('alerts').update({ resolved: true }).eq('id', alertId)
       if (error) throw error
-      fetchAlerts()
+      setAlerts((prev) => prev.filter((a) => a.id !== alertId))
     } catch (err) {
       console.error('Error resolving alert:', err)
+    } finally {
+      setResolvingId(null)
     }
   }
 
-  const severityColors = { high: 'bg-red-100 text-red-800 border-red-300', medium: 'bg-yellow-100 text-yellow-800 border-yellow-300', low: 'bg-blue-100 text-blue-800 border-blue-300' }
-  const severityBadgeColors = { high: 'bg-red-100 text-red-700', medium: 'bg-yellow-100 text-yellow-700', low: 'bg-blue-100 text-blue-700' }
-
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Alerts</h1>
-      <div className="mb-6">
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-          <option value="all">All Active Alerts</option>
-          <option value="high">High Severity</option>
-          <option value="medium">Medium Severity</option>
-          <option value="low">Low Severity</option>
-        </select>
-      </div>
+    <div className="min-h-full">
+      <Header
+        title="Alerts"
+        subtitle={loading ? 'Loading…' : `${alerts.length} active alert${alerts.length === 1 ? '' : 's'} need review`}
+        action={
+          <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
+                  filter === f.key ? 'bg-grad-brand text-white shadow-glow' : 'text-gray-500 hover:text-ink-900'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-700 text-sm">{error}</p>
-          <button onClick={() => fetchAlerts()} className="mt-2 text-red-600 hover:underline text-sm font-medium">Retry</button>
-        </div>
-      )}
+      <div className="p-8">
+        {error && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <span>{error}</span>
+            <button onClick={() => fetchAlerts()} className="font-semibold underline">Retry</button>
+          </div>
+        )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>
-      ) : alerts.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200"><p className="text-gray-500 text-lg">No alerts found</p></div>
-      ) : (
-        <div className="space-y-4">
-          {alerts.map((alert) => (
-            <div key={alert.id} className={`rounded-lg border-l-4 p-6 ${severityColors[alert.severity as keyof typeof severityColors]}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Link href={`/dashboard/suppliers?selected=${alert.supplier_id}`} className="text-lg font-bold hover:underline">{alert.suppliers?.name || 'Unknown Supplier'}</Link>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${severityBadgeColors[alert.severity as keyof typeof severityBadgeColors]}`}>{alert.severity}</span>
-                  </div>
-                  <p className="text-gray-700 mb-2">{alert.message}</p>
-                  <p className="text-sm text-gray-600">Created on {new Date(alert.created_at).toLocaleDateString()}</p>
-                </div>
-                <button onClick={() => handleResolveAlert(alert.id)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 font-medium text-sm">Resolve</button>
-              </div>
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl border border-gray-100 bg-white shadow-card" />
+            ))}
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-20 text-center shadow-card">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="m9 11 3 3L22 4" /></svg>
             </div>
-          ))}
-        </div>
-      )}
+            <p className="text-lg font-semibold text-ink-900">All clear</p>
+            <p className="mt-1 text-sm text-gray-500">No active alerts{filter !== 'all' ? ' at this severity' : ''}. You’re on top of it.</p>
+          </div>
+        ) : (
+          <div className="reveal space-y-3">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`flex items-start justify-between gap-4 rounded-2xl border border-gray-100 border-l-4 bg-white p-5 shadow-card transition hover:shadow-card-hover ${sideAccent[alert.severity] || 'border-l-gray-300'}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2.5">
+                    <span className="flex items-center gap-2">
+                      <StatusDot status={alert.suppliers?.status || 'critical'} />
+                      <span className="font-bold text-ink-900">{alert.suppliers?.name || 'Unknown supplier'}</span>
+                    </span>
+                    <SeverityBadge severity={alert.severity} />
+                  </div>
+                  <p className="text-sm leading-relaxed text-gray-700">{alert.message}</p>
+                  <p className="mt-1.5 text-xs text-gray-400">
+                    Raised {new Date(alert.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleResolveAlert(alert.id)}
+                  disabled={resolvingId === alert.id}
+                  className="flex flex-none items-center gap-1.5 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m20 6-11 11-5-5" /></svg>
+                  {resolvingId === alert.id ? 'Resolving…' : 'Resolve'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
