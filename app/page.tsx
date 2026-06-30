@@ -83,6 +83,7 @@ export default function Landing() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!loading && user) router.push('/dashboard')
@@ -94,34 +95,62 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // a solid nav background whenever scrolled OR the mobile menu is open
+  const solidNav = scrolled || menuOpen
+  const navLink = solidNav ? 'text-gray-600 hover:text-ink-900' : 'text-white/80 hover:text-white'
+
   return (
     <div className="min-h-screen bg-white text-ink-900 overflow-x-hidden">
       {/* ───────── NAV ───────── */}
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-          scrolled ? 'bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm' : 'bg-transparent'
+          solidNav ? 'border-b border-gray-100 bg-white/90 shadow-sm backdrop-blur-xl' : 'bg-transparent'
         }`}
       >
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Logo />
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6">
+          <Logo light={!solidNav} />
           <div className="hidden items-center gap-8 md:flex">
-            <a href="#features" className="text-sm font-medium text-gray-600 hover:text-ink-900 transition">Features</a>
-            <a href="#how" className="text-sm font-medium text-gray-600 hover:text-ink-900 transition">How it works</a>
-            <a href="#pricing" className="text-sm font-medium text-gray-600 hover:text-ink-900 transition">Pricing</a>
+            <a href="#features" className={`text-sm font-medium transition ${navLink}`}>Features</a>
+            <a href="#how" className={`text-sm font-medium transition ${navLink}`}>How it works</a>
+            <a href="#pricing" className={`text-sm font-medium transition ${navLink}`}>Pricing</a>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/auth/login" className="hidden text-sm font-semibold text-gray-700 hover:text-ink-900 transition sm:block">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/auth/login" className={`hidden text-sm font-semibold transition sm:block ${navLink}`}>
               Log in
             </Link>
             <Link
               href="/auth/signup"
-              className="group inline-flex items-center gap-1.5 rounded-full bg-grad-brand px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:shadow-glow-lg"
+              className="group inline-flex items-center gap-1.5 rounded-full bg-grad-brand px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:shadow-glow-lg sm:px-5"
             >
               Get started
               {Icon.arrow('h-4 w-4 transition-transform group-hover:translate-x-0.5')}
             </Link>
+            {/* hamburger (mobile only) */}
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Toggle menu"
+              className={`flex h-10 w-10 items-center justify-center rounded-lg transition md:hidden ${solidNav ? 'text-ink-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+            >
+              {menuOpen ? (
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              ) : (
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h18" /><path d="M3 6h18" /><path d="M3 18h18" /></svg>
+              )}
+            </button>
           </div>
         </nav>
+
+        {/* mobile menu panel */}
+        {menuOpen && (
+          <div className="border-t border-gray-100 bg-white px-5 pb-5 pt-2 md:hidden">
+            <div className="flex flex-col">
+              <a href="#features" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">Features</a>
+              <a href="#how" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">How it works</a>
+              <a href="#pricing" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">Pricing</a>
+              <Link href="/auth/login" className="mt-2 rounded-xl border border-gray-200 px-3 py-3 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50">Log in</Link>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ───────── HERO ───────── */}
@@ -422,33 +451,33 @@ function DashboardMockup() {
         </div>
 
         {/* content */}
-        <div className="bg-gray-50/60 p-5 text-left">
+        <div className="bg-gray-50/60 p-4 text-left sm:p-5">
           {/* stat cards */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
               ['Suppliers', '10', 'text-ink-900'],
               ['Critical', '3', 'text-rose-600'],
               ['Active alerts', '6', 'text-amber-600'],
             ].map(([label, val, color]) => (
-              <div key={label} className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-                <div className="text-[0.7rem] text-gray-400">{label}</div>
-                <div className={`text-2xl font-extrabold ${color}`}>{val}</div>
+              <div key={label} className="rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm sm:p-3">
+                <div className="text-[0.65rem] text-gray-400 sm:text-[0.7rem]">{label}</div>
+                <div className={`text-xl font-extrabold sm:text-2xl ${color}`}>{val}</div>
               </div>
             ))}
           </div>
 
           {/* table */}
           <div className="mt-4 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-            <div className="grid grid-cols-[1.6fr_1fr_0.9fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400">
-              <span>Supplier</span><span>Category</span><span>Status</span><span>Health</span>
+            <div className="grid grid-cols-[1.5fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400 sm:grid-cols-[1.6fr_1fr_0.9fr_1fr] sm:px-4">
+              <span>Supplier</span><span className="hidden sm:block">Category</span><span>Status</span><span>Health</span>
             </div>
             {rows.map((r) => (
-              <div key={r.name} className="grid grid-cols-[1.6fr_1fr_0.9fr_1fr] items-center gap-2 border-b border-gray-50 px-4 py-3 text-xs last:border-0">
-                <span className="font-semibold text-ink-900">{r.name}</span>
-                <span className="text-gray-500">{r.cat}</span>
+              <div key={r.name} className="grid grid-cols-[1.5fr_1fr_1fr] items-center gap-2 border-b border-gray-50 px-3 py-3 text-xs last:border-0 sm:grid-cols-[1.6fr_1fr_0.9fr_1fr] sm:px-4">
+                <span className="truncate font-semibold text-ink-900">{r.name}</span>
+                <span className="hidden text-gray-500 sm:block">{r.cat}</span>
                 <span><span className={`rounded-full px-2 py-0.5 text-[0.65rem] font-semibold capitalize ${badge[r.status]}`}>{r.status.replace('_', ' ')}</span></span>
                 <span className="flex items-center gap-2">
-                  <span className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100">
+                  <span className="h-1.5 w-10 overflow-hidden rounded-full bg-gray-100 sm:w-12">
                     <span className={`block h-full rounded-full ${bar[r.status]}`} style={{ width: `${r.score}%` }} />
                   </span>
                   <span className="font-bold text-ink-900">{r.score}</span>

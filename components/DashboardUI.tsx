@@ -8,12 +8,12 @@ export function Header({
   action?: React.ReactNode
 }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-gray-200/70 bg-white/80 px-8 py-5 backdrop-blur-xl">
+    <header className="sticky top-0 z-10 flex flex-col gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-5 lg:px-8">
       <div>
-        <h1 className="text-xl font-extrabold tracking-tight text-ink-900">{title}</h1>
+        <h1 className="text-lg font-extrabold tracking-tight text-ink-900 sm:text-xl">{title}</h1>
         {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
       </div>
-      {action}
+      {action && <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:overflow-visible sm:px-0">{action}</div>}
     </header>
   )
 }

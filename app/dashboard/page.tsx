@@ -69,7 +69,7 @@ export default function DashboardPage() {
     <div className="min-h-full">
       <Header title="Dashboard" subtitle="Your supplier health at a glance" />
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {loading ? (
           <DashboardSkeleton />
         ) : (
@@ -136,19 +136,19 @@ export default function DashboardPage() {
                       <Link
                         key={s.id}
                         href="/dashboard/suppliers"
-                        className="flex items-center gap-4 rounded-xl border border-gray-100 px-4 py-3 transition hover:border-brand-200 hover:bg-brand-50/40"
+                        className="flex items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 transition hover:border-brand-200 hover:bg-brand-50/40 sm:gap-4 sm:px-4"
                       >
                         <StatusDot status={s.status} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-semibold text-ink-900">{s.name}</div>
-                          <div className="text-xs text-gray-400">{s.category || '—'}</div>
+                          <div className="truncate text-xs text-gray-400">{s.category || '—'}</div>
                         </div>
-                        <StatusBadge status={s.status} />
-                        <div className="flex w-28 items-center gap-2">
+                        <div className="hidden sm:block"><StatusBadge status={s.status} /></div>
+                        <div className="flex w-20 items-center gap-2 sm:w-28">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                             <div className={`h-full rounded-full ${scoreColor(s.health_score)}`} style={{ width: `${s.health_score}%` }} />
                           </div>
-                          <span className="w-7 text-right text-sm font-bold text-ink-900">{s.health_score}</span>
+                          <span className="w-6 text-right text-sm font-bold text-ink-900 sm:w-7">{s.health_score}</span>
                         </div>
                       </Link>
                     ))

@@ -79,7 +79,7 @@ export default function SupplierDetail({ supplier, onGenerateBrief }: SupplierDe
       <div className="relative overflow-hidden bg-ink-950 p-6 text-white">
         <div className="absolute inset-0 bg-mesh opacity-50" />
         <div className="relative">
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-3 flex items-start justify-between gap-3 pr-10 lg:pr-0">
             <h2 className="text-xl font-extrabold tracking-tight">{supplier.name}</h2>
             <StatusBadge status={supplier.status} />
           </div>

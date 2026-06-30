@@ -87,7 +87,7 @@ export default function AlertsPage() {
         }
       />
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {error && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
             <span>{error}</span>
@@ -114,7 +114,7 @@ export default function AlertsPage() {
             {alerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`flex items-start justify-between gap-4 rounded-2xl border border-gray-100 border-l-4 bg-white p-5 shadow-card transition hover:shadow-card-hover ${sideAccent[alert.severity] || 'border-l-gray-300'}`}
+                className={`flex flex-col gap-3 rounded-2xl border border-gray-100 border-l-4 bg-white p-4 shadow-card transition hover:shadow-card-hover sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-5 ${sideAccent[alert.severity] || 'border-l-gray-300'}`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="mb-1.5 flex flex-wrap items-center gap-2.5">
@@ -132,7 +132,7 @@ export default function AlertsPage() {
                 <button
                   onClick={() => handleResolveAlert(alert.id)}
                   disabled={resolvingId === alert.id}
-                  className="flex flex-none items-center gap-1.5 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
+                  className="flex flex-none items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50 sm:w-auto"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m20 6-11 11-5-5" /></svg>
                   {resolvingId === alert.id ? 'Resolving…' : 'Resolve'}
